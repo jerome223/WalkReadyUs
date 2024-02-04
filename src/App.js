@@ -31,12 +31,12 @@ function App() {
     epicerie: []
   });
   const [checkboxStates, setCheckboxStates] = useState({
-    com: false,
-    med: false,
-    parc: false,
-    pharmacie: false,
-    resto: false,
-    epicerie: false
+    CentresCommunautaires: false,
+    ServicesMedicaux: false,
+    Parcs: false,
+    Pharmacies: false,
+    Restaurants: false,
+    Epiceries: false
   });
   
   
@@ -214,39 +214,39 @@ const MapView = ({ address, position, isochrone, insidePoints, checkboxStates })
         </Popup>
       </Marker>
       
-      {checkboxStates.com && insidePoints.com.map((point, index) => (
+      {checkboxStates.CentresCommunautaires && insidePoints.com.map((point, index) => (
         <Marker key={index} position={[point.lat, point.lng]} icon={comMarkerIcon}>
-          <Popup>Communauté</Popup>
+          <Popup>Centre communautaire</Popup>
         </Marker>
       ))}
 
-      {checkboxStates.med && insidePoints.med.map((point, index) => (
+      {checkboxStates.ServicesMedicaux && insidePoints.med.map((point, index) => (
         <Marker key={index} position={[point.lat, point.lng]} icon={medMarkerIcon}>
-          <Popup>Communauté</Popup>
+          <Popup>Service médical</Popup>
         </Marker>
       ))}
 
-      {checkboxStates.parc && insidePoints.parc.map((point, index) => (
+      {checkboxStates.Parcs && insidePoints.parc.map((point, index) => (
         <Marker key={index} position={[point.lat, point.lng]} icon={parcMarkerIcon}>
-          <Popup>Communauté</Popup>
+          <Popup>Parc</Popup>
         </Marker>
       ))}
 
-      {checkboxStates.pharmacie && insidePoints.pharmacie.map((point, index) => (
+      {checkboxStates.Pharmacies && insidePoints.pharmacie.map((point, index) => (
         <Marker key={index} position={[point.lat, point.lng]} icon={pharmMarkerIcon}>
-          <Popup>Communauté</Popup>
+          <Popup>Pharmacie</Popup>
         </Marker>
       ))}
 
-      {checkboxStates.resto && insidePoints.resto.map((point, index) => (
+      {checkboxStates.Restaurants && insidePoints.resto.map((point, index) => (
         <Marker key={index} position={[point.lat, point.lng]} icon={restoMarkerIcon}>
-          <Popup>Communauté</Popup>
+          <Popup>Restaurant</Popup>
         </Marker>
       ))}
 
-      {checkboxStates.epicerie && insidePoints.epicerie.map((point, index) => (
+      {checkboxStates.Epiceries && insidePoints.epicerie.map((point, index) => (
         <Marker key={index} position={[point.lat, point.lng]} icon={epiceMarkerIcon}>
-          <Popup>Communauté</Popup>
+          <Popup>Épicerie</Popup>
         </Marker>
       ))}
 
