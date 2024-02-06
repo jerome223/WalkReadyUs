@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import './App.css';
@@ -14,33 +14,35 @@ import pharmIcon from './pharm.png';
 import restoIcon from './resto.png';
 import parcIcon from './parc.png';
 import { isPointInsidePolygon } from './VerifyInside';
-import { fetchAndParseCSV } from './CsvParse'; 
+//import { fetchAndParseCSV } from './CsvParse';
+import { fetchNearbyUtilities } from './FetchNearby';
 
 
 function App() {
   const [position, setPosition] = useState([45.5017, -73.5673]); // Montreal's coordinates as default
-  const [address, setAddress] = useState('2500 Polytechnique');
+  const [address, setAddress] = useState('2500 Chem. de Polytechnique, Montréal, QC H3T 1J4, Canada');
+  const autocompleteInput = useRef(null);
+  let autocomplete = null;
   const [time, setTime] = useState('15'); // New state for time in minutes
   const [isochrone, setIsochrone] = useState([]);
   const [insidePoints, setInsidePoints] = useState({
-    com: [],
-    med: [],
-    parc: [],
-    pharmacie: [],
-    resto: [],
-    epicerie: []
+    library: [],
+    hospital: [],
+    park: [],
+    pharmacy: [],
+    restaurant: [],
+    supermarket: []
   });
   const [checkboxStates, setCheckboxStates] = useState({
-    CentresCommunautaires: false,
-    ServicesMedicaux: false,
+    Bibliotheques: false,
+    CentresMedicaux: false,
     Parcs: false,
     Pharmacies: false,
     Restaurants: false,
     Epiceries: false
   });
-  
-  
-  
+  const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+
   const handleCheckboxChange = (option) => (e) => {
   setCheckboxStates({ ...checkboxStates, [option]: e.target.checked });
   };
@@ -49,30 +51,51 @@ function App() {
     setPosition([lat, lng]);
   };
 
-  const fetchAndSetPointsForCategory = async (category, csvFilePath, shapes) => {
-    const points = await fetchAndParseCSV(csvFilePath);
+  // Replace this function with Google's API for places
+  const fetchAndSetPointsForCategory = async (category, origin, shapes) => { 
+    //console.log(origin, origin.lat, origin.lng);
+    try{
+    const dist = 60*parseInt(time, 10);
+    const points = await fetchNearbyUtilities(origin.lat, origin.lng, dist, category); // distance should be 100m x time in minutes
+    console.log(points, category, dist);
     const insidePoints = points.filter(point => 
       isPointInsidePolygon([point.lat, point.lng], shapes)
     );
-    console.log(category, insidePoints);
+    console.log(insidePoints);
     setInsidePoints(prevState => ({ ...prevState, [category]: insidePoints }));
+    }catch (error){
+      console.error(`Error fetching ${category}:`, error);
+    }
   };
   
+  useEffect(() => {
+    autocomplete = new window.google.maps.places.Autocomplete(autocompleteInput.current,
+      {types: ['geocode']});
+
+    autocomplete.addListener('place_changed', () => {
+      const place = autocomplete.getPlace();
+      setAddress(place.formatted_address);
+    });
+  }, []);
 
   const searchAddress = async () => {
-    const geocodingUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${address}`;
+    const addressUri = encodeURIComponent(address);
+    //console.log("address", address, "addressUri", addressUri);
+    console.log(apiKey);
+    const geocodingUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${addressUri}&key=AIzaSyAu05yaHnhqM-q45v0WsRj_mOgz_KGyS2s`; //to make secret later
     try {
       const geoResponse = await axios.get(geocodingUrl);
       const geoData = geoResponse.data;
-      //console.log(geoData);
-      if (geoData && geoData.length > 0) {
-        const { lat, lon } = geoData[0];
-        updatePosition(parseFloat(lat), parseFloat(lon));
-        console.log(lat, lon);
+      
+      if (geoData.results && geoData.results.length > 0) {
+        const { lat, lng } = geoData.results[0].geometry.location;
+        //console.log(lat, lng);
+        updatePosition(parseFloat(lat), parseFloat(lng));
+        //console.log(lat, lon);
         // Ensure the time is correctly parsed as an integer
-        //lng = lon;
-        const data = await getTravelTimeData(parseFloat(lat), parseFloat(lon), parseInt(time, 10));
-        //console.log(data);
+
+        const data = await getTravelTimeData(parseFloat(lat), parseFloat(lng), parseInt(time, 10));
+ 
           if (data && data.results && data.results[0].shapes) 
             {
               const isochroneShapes = data.results[0].shapes.map(shape => shape.shell);
@@ -80,14 +103,16 @@ function App() {
 
           
               if (isochroneShapes.length > 0) { // Ensure isochroneShapes is not empty
-                fetchAndSetPointsForCategory('com', './com.csv', isochroneShapes[0]);
-                fetchAndSetPointsForCategory('med', './med.csv', isochroneShapes[0]);
-                fetchAndSetPointsForCategory('parc', './parc.csv', isochroneShapes[0]);
-                fetchAndSetPointsForCategory('pharmacie', './pharmacie.csv', isochroneShapes[0]);
-                fetchAndSetPointsForCategory('resto', './resto.csv', isochroneShapes[0]);
-                fetchAndSetPointsForCategory('epicerie', './epicerie.csv', isochroneShapes[0]);
-                
-                //checkPointsInsideIsochrone();
+                try{
+                  await fetchAndSetPointsForCategory('hospital', { lat, lng }, isochroneShapes[0]);
+                  await fetchAndSetPointsForCategory('restaurant', { lat, lng }, isochroneShapes[0]);
+                  await fetchAndSetPointsForCategory('supermarket', { lat, lng }, isochroneShapes[0]);
+                  await fetchAndSetPointsForCategory('park', { lat, lng }, isochroneShapes[0]);
+                  await fetchAndSetPointsForCategory('pharmacy', { lat, lng }, isochroneShapes[0]);
+                  await fetchAndSetPointsForCategory('library', { lat, lng }, isochroneShapes[0]);
+                } catch(error){
+                  console.error('Error fetching points for category:', error);
+                              }
               }
             }
         } 
@@ -103,6 +128,7 @@ function App() {
   return (
     <div className="App">
       <input
+        ref={autocompleteInput}
         type="text"
         value={address}
         onChange={(e) => setAddress(e.target.value)}
@@ -214,39 +240,39 @@ const MapView = ({ address, position, isochrone, insidePoints, checkboxStates })
         </Popup>
       </Marker>
       
-      {checkboxStates.CentresCommunautaires && insidePoints.com.map((point, index) => (
+      {checkboxStates.Bibliotheques && insidePoints.library.map((point, index) => (
         <Marker key={index} position={[point.lat, point.lng]} icon={comMarkerIcon}>
-          <Popup>Centre communautaire</Popup>
+          <Popup>{point.name}</Popup>
         </Marker>
       ))}
 
-      {checkboxStates.ServicesMedicaux && insidePoints.med.map((point, index) => (
+      {checkboxStates.CentresMedicaux && insidePoints.hospital.map((point, index) => (
         <Marker key={index} position={[point.lat, point.lng]} icon={medMarkerIcon}>
-          <Popup>Service médical</Popup>
+          <Popup>{point.name}</Popup>
         </Marker>
       ))}
 
-      {checkboxStates.Parcs && insidePoints.parc.map((point, index) => (
+      {checkboxStates.Parcs && insidePoints.park.map((point, index) => (
         <Marker key={index} position={[point.lat, point.lng]} icon={parcMarkerIcon}>
-          <Popup>Parc</Popup>
+          <Popup>{point.name}</Popup>
         </Marker>
       ))}
 
-      {checkboxStates.Pharmacies && insidePoints.pharmacie.map((point, index) => (
+      {checkboxStates.Pharmacies && insidePoints.pharmacy.map((point, index) => (
         <Marker key={index} position={[point.lat, point.lng]} icon={pharmMarkerIcon}>
-          <Popup>Pharmacie</Popup>
+          <Popup>{point.name}</Popup>
         </Marker>
       ))}
 
-      {checkboxStates.Restaurants && insidePoints.resto.map((point, index) => (
+      {checkboxStates.Restaurants && insidePoints.restaurant.map((point, index) => (
         <Marker key={index} position={[point.lat, point.lng]} icon={restoMarkerIcon}>
-          <Popup>Restaurant</Popup>
+          <Popup>{point.name}<br /></Popup>
         </Marker>
       ))}
 
-      {checkboxStates.Epiceries && insidePoints.epicerie.map((point, index) => (
+      {checkboxStates.Epiceries && insidePoints.supermarket.map((point, index) => (
         <Marker key={index} position={[point.lat, point.lng]} icon={epiceMarkerIcon}>
-          <Popup>Épicerie</Popup>
+          <Popup>{point.name}</Popup>
         </Marker>
       ))}
 

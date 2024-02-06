@@ -3,6 +3,11 @@
   background-color: #74c863e8;
 }
 
+.App:hover {
+  text-align: center;
+  background-color: #28d219e8;
+}
+
 .App-logo {
   height: 40vmin;
   pointer-events: none;
